@@ -7,7 +7,7 @@ Click==7.0
 cql==1.4.0
 cycler==0.10.0
 dataclasses==0.6
-Django==2.2.4
+Django==2.2.13
 django-cassandra-engine==1.5.5
 django-cors-headers==3.2.1
 django-debug-toolbar==2.2
