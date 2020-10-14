@@ -1,0 +1,25 @@
+{% extends 'header.html' %}
+{% block title %}Travel As You Go | Find Your Activity Facility & Near By Place{% endblock %}
+
+	<!--#Places & Events Listing Start -->
+  {% block body %}
+  <style media="screen">
+  @media only screen and (max-width: 500px) {
+  .martop {
+  margin-top:-20%;
+  }
+  }
+  @media only screen and (min-width: 500px) {
+  .martop {
+  margin-top:-5%;
+  }
+  }
+  </style>
+  <div class="martop">
+    {% include "virtual_list.html" %}
+  	{% include "activity.html" %}
+    {% include "facility.html" %}
+    {% include "recom.html" %}
+  </div>
+  {% endblock %}
+	<!--#owl Slider End-->

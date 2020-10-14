@@ -40,3 +40,16 @@ class Location_add(models.Model):
     other1=models.FileField(upload_to='other1',default="")
     other2=models.FileField(upload_to='other2',default="")
     other3=models.FileField(upload_to='other3',default="")
+
+class Usa_state(models.Model):
+    name = models.CharField(max_length=120)
+    api_url = models.CharField(max_length=300)
+    img=models.FileField(upload_to='state_img',default="none")
+    desc = models.CharField(max_length=280,default="none")
+    park_qnt = models.CharField(max_length=200,default="none")
+
+class Virtual(models.Model):
+    name=models.CharField(max_length=200)
+    description=models.CharField(max_length=2000, default="empty")
+    image=models.FileField(upload_to='virtual',default="")
+    url=models.CharField(max_length=200)

@@ -1,9 +1,9 @@
 function format(state) {
-    if (!state.id) return state.text; 
+    if (!state.id) return state.text;
     return "<img class='flag' src='../light/assets/img/flags/" + state.id.toLowerCase() + ".png'/> &nbsp;" + state.text;
 }
 
-var placeholder = "Select a State";
+var placeholder = "Select Activities";
 $('.select2, .select2-multiple').select2({
 	theme: "bootstrap",
     placeholder: placeholder,
@@ -28,6 +28,3 @@ $( "button[data-select2-open]" ).click( function() {
 $( ":checkbox" ).on( "click", function() {
 	$( this ).parent().nextAll( "select" ).prop( "disabled", !this.checked );
 });
-
-
-

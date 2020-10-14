@@ -1,0 +1,18 @@
+
+    {% for news in news_api %}
+    <div class="open-timing" >
+
+      <div class="time-left">
+        {{news.title}}
+      </div> <br>
+      <div class="time-right">
+        {{news.desc}}
+      </div> <br>
+      <div class="message-heading1">
+
+        <span>{{news.date}} </span>
+      <a href="{{news.link}}"  ><span style='margin-left:5px;'>View More</span> </a>
+      </div>
+    </div>
+
+    {% endfor %}

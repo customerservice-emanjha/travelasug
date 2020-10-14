@@ -1,260 +1,681 @@
-from django.shortcuts import render
-from .models import Facilities, Activities, Categories, Api_document, Location_add
-from .serializers import FacilitiesSerializer, ActivitiesSerializer, CategoriesSerializer
-from django.http import HttpResponse
-from rest_framework import viewsets
-from array import *
-import json, requests
+from django.shortcuts import render, redirect
+from emanjha_admin.models import Virtual, Activities, Facilities, Location_add, Categories,Usa_state
+from django.contrib.auth.models import User, auth
+from .models import UserLocation, SignUp, Review, Imd_Review, Feedback, Wishlist,Trending,Twitter
 import ast
-# Admin Panel Dashboad section start here
-def dashboard(request):
-    return render(request,'dashboard.html')
+from django.http import JsonResponse
+import json, requests
+import urllib.request
+import time
+import reverse_geocoder as rg
+# pip install reverse_geocoder
+import pprint
+import socket
+# pip3 install js2py
+from django.http import JsonResponse
+from .mmail import tabmail
+import random
+from django.core.mail import BadHeaderError, send_mail
+import datetime
+from datetime import date
+from GoogleNews import GoogleNews
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+# twitter api start here
+import tweepy
+from textblob import TextBlob
+asecret = '9VK7wy1q8zeWsmoeflxRmitru3Xj2mPJQ1QaBzCWllhJa'
+akey = '984689745581064192-iMSQFTTXhGK5Aezz8OYInicZSlp51st'
+csecret = 'EZsRWFVZ814qaVWfjlyKErAvATPu0wHE1kyoDNka8DiTafwaTM'
+ckey = 'LJRTLQkwzAVroGDmVJOlsIQjb'
+def twitter(twitloc,id):
+    twit_data1 = Twitter.objects.filter(p_id=id)
+    twit_data = twit_data1.count()
+    if twit_data == 0:
+        auth = tweepy.OAuthHandler(ckey,csecret)
+        auth.set_access_token(akey,asecret)
+        api = tweepy.API(auth)
+        public_tweets = tweepy.Cursor(api.search, q=twitloc).items(10)
+        for twit in public_tweets:
+            twit_text = twit.text
+            twit_count = twit.retweet_count
+            twit_id = twit.id
+            # twit_img = twit.__dict__['_json']['entities']['media'][0]['media_url']
+            twit_img = twit.user.profile_image_url
+            # twit_user1 = twit.__dict__['_json']['entities']['user_mentions'][0]['name']
+            twit_user2 = twit.user.name
+            twit_like = twit.favorite_count
+            dt = date.today()
+            twit_insert = Twitter(p_id=id,twit_text=twit_text,dt=dt,twit_count=twit_count,twit_id=twit_id,twit_img=twit_img,twit_user2=twit_user2,twit_like=twit_like).save()
 
-# Admin Panel Dashboard end here
-
-
-# XXXXXXXX---------  Start Facilities Section --------XXXXXXXXX
-
- # Facilities API start here
-class FacilitiesView(viewsets.ModelViewSet):
-    """API URLS FOR VIEW Facilities API : http://127.0.0.1:8000/facilities_api"""
-    queryset = Facilities.objects.all()
-    serializer_class = FacilitiesSerializer
- # Facilities API END
-
-def facilities(request):
-    # Here we do Facilities add to db section
-    if request.method =='POST':
-        name = request.POST.get('name','empty')
-        image = request.FILES.get('image','image_empty')
-        insert = Facilities(name=name,image=image)
-        insert.save()
-        return render(request,'facilities.html',{'msg':'Facilities Added Successfully..'})
-        # end Facilities add to db section
+        twitter_data = Twitter.objects.filter(p_id=id)
     else:
-        data = Facilities.objects.all().order_by('-id')
-        return render(request,'facilities.html',{'data':data})
+        twitter_data = twit_data1
+    return twitter_data
+#xxxxxxx-------end-------xxxxxxxx
+# Create your views here.
+#  app ps viidiytcizvoxadx
+# XXXXX------Side bar load----XXXXXXX
+def res_sidebar(request):
+    return render(request,'res_sidebar.html')
+# XXXXXX------END------XXXXXX
+# login
+def signin(request):
+    if request.method=='POST':
+        em=request.POST['em']
+        ps=request.POST['ps']
+        # send_mail('subject', 'tabish', 'tabishadnan9@gmail.com', ['tabishadnan8@gmail.com'])
+        user = auth.authenticate(username=em,password=ps)
+        if user is not None:
+            auth.login(request, user)
+            return redirect('/')
+        else:
+            return render(request,'signin.html',{'msg':'User Name Not Exits..!'})
 
-    # facilities_delete section start
-def facilities_delete(request):
-    if request.method == 'POST':
-        id = request.POST.get('id')
-        delete = Facilities.objects.filter(id=id).delete()
-        return render(request,'facilities.html',{'msg':'Facilities Deleted Successfully..'})
-    # end facilities_delete section
-
-# XXXXXXXX------- End Facilities -------XXXXXXXXX
-
-# XXXXXXXXXX------- Start Activities Section -------XXXXXXXXXX
-
-# Activities API start here
-class ActivitiesView(viewsets.ModelViewSet):
-   """API URLS FOR VIEW Activities API : http://127.0.0.1:8000/activities_api"""
-   queryset = Activities.objects.all()
-   serializer_class = ActivitiesSerializer
-
-
-# print(green.queryset)
-# def testing(request):
-#     '''this is only for testing  our code'''
-#     x = requests.get("http://127.0.0.1:8000/categories_api/")
-#     m = {'name':x,'num':'97364'}
-#     # l = json.dumps(m)
-#
-#     print(m)
-#     return HttpResponse(m)
-# end code tester
- # Activities API END
-def activities(request):
-    # Here we do Activities add to db section
-    if request.method =='POST':
-        name = request.POST.get('name','empty')
-        image = request.FILES.get('image','image_empty')
-        insert = Activities(name=name,image=image)
-        insert.save()
-        return render(request,'activities.html',{'msg':'Activities Added Successfully..'})
-        # end Activities add to db section
     else:
-        data = Activities.objects.all().order_by('-id')
-        return render(request,'activities.html',{'data':data})
-
-    # Activities delete section start
-def activities_delete(request):
+        return render(request,'signin.html')
+# end
+# XXXXXXXXX---------SIGN-UP-------XXXXXXXXXXXX
+def signup(request):
     if request.method == 'POST':
-        id = request.POST.get('id')
-        delete = Activities.objects.filter(id=id).delete()
-        return render(request,'activities.html',{'msg':'Activities Deleted Successfully..'})
-    # end Activities delete section
-
-#  XXXXXXX-------- End Activities -------XXXXXXX
-
-
-# XXXXXXXX---------  Start Categories Section --------XXXXXXXXX
-
- # Categories API start here
-class CategoriesView(viewsets.ModelViewSet):
-    """API URLS FOR VIEW Categories API : http://127.0.0.1:8000/categories_api"""
-    queryset = Categories.objects.all()
-    serializer_class = CategoriesSerializer
- # Categories API END
-
-def categories(request):
-    # Here we do Categories add to db section
-    if request.method =='POST':
-        name = request.POST.get('name','empty')
-        image = request.FILES.get('image','image_empty')
-        insert = Categories(name=name,image=image)
-        insert.save()
-        return render(request,'categories.html',{'msg':'Categories Added Successfully..'})
-        # end Categories add to db section
-    else:
-        data = Categories.objects.all().order_by('-id')
-        return render(request,'categories.html',{'data':data})
-
-    # Categories_delete section start
-def categories_delete(request):
-    if request.method == 'POST':
-        id = request.POST.get('id')
-        delete = Categories.objects.filter(id=id).delete()
-        return render(request,'categories.html',{'msg':'Categories Deleted Successfully..'})
-    # end Categories_delete section
-
-# XXXXXXXX------- End Categories -------XXXXXXXXX
-
-# XXXXXXXXXX-------API DOCUMENTS SECTION START-------XXXXXXXXXXXX
-
-def api_document(request):
-    if request.method =='POST':
-        name = request.POST.get('name')
-        desc = request.POST.get('desc')
-        api_url = request.POST.get('api_url')
-        insert = Api_document(name=name,desc=desc,api_url=api_url).save()
-        return render(request,'document.html',{'msg':'Documents Added Successfully....!'})
-    else:
-        data = Api_document.objects.all()
-        return render(request,'document.html',{'data':data})
-
-# XX---END DOCUMENY---XX
-
-# XXXXXX---------START LOCATION Section------------XXXXXXXXXXXXXX
-
-#XXXXXX-------Start all Location Section----XXXXX
-def location(request):
-    location_data = Location_add.objects.all().order_by('-id')
-    return render(request,'location.html',{'data':location_data})
-
-#XXX----End all Location---XXX
-
-#XXX---Start single-location Section---XXX
-def single_location(request, id):
-    location_single = Location_add.objects.all().filter(id=id)
-
-
-    for cat_id in location_single:
-        location_cat = cat_id.category
-        location_category = location_cat.strip('][').split(', ')
-
-        location_fat = cat_id.facility
-        location_facility = location_fat.strip('][').split(', ')
-
-        location_act = cat_id.activity
-        location_activity = location_act.strip('][').split(', ')
-
-    cat_l = []
-    fat_l = []
-    act_l = []
-
-#XXX---getting category filter data---XXX
-    for cx in location_category:
-        ca1 = ast.literal_eval(cx)
-        cd = int(ca1)
-        cat_l.append(cd)
-    cat_data = Categories.objects.all().filter(pk__in=cat_l)
-# XXX----END-----XXXX
-
-#XXX---getting facility filter data---XXX
-    for fx in location_facility:
-        fa1 = ast.literal_eval(fx)
-        fd = int(fa1)
-        fat_l.append(fd)
-    fat_data = Facilities.objects.all().filter(pk__in=fat_l)
-# XXX----END-----XXXX
-
-#XXX---getting Activities filter data---XXX
-    for ax in location_activity:
-        aa1 = ast.literal_eval(ax)
-        ad = int(aa1)
-        act_l.append(ad)
-    act_data = Activities.objects.all().filter(pk__in=act_l)
-# XXX----END-----XXXX
-
-    return render(request,'single-location.html',{'location_single':location_single,'cat_id':cat_data,'fat_id':fat_data,'act_id':act_data})
-
-
-
-#XXX---End single-location---XXX
-
-#XXXX-----START ADD LOCATION SECTION----XXXXX
-def add_location(request):
-    if request.method == 'POST':
-        name = request.POST.get('name','name_empty')
-        city = request.POST.get('city','city_empty')
-        state = request.POST.get('state','state_empty')
-        country = request.POST.get('country','country_empty')
-        zipcode = request.POST.get('zipcode','zipcode_empty')
-        address = request.POST.get('address','address_empty')
-        logitude = request.POST.get('logitude','logitude_empty')
-        latitude = request.POST.get('latitude','latitude_empty')
-        overview = request.POST.get('overview','name_empty')
-        categories = request.POST.getlist('category','category_empty')
-        facilities = request.POST.getlist('facility','facility_empty')
-        activities = request.POST.getlist('activity','activity_empty')
-        thumbnail1 = request.FILES.get('thumbnail1','thumbnail1_empty')
-        thumbnail2 = request.FILES.get('thumbnail2','thumbnail2_empty')
-        thumbnail3 = request.FILES.get('thumbnail3','thumbnail3_empty')
-        other1 = request.FILES.get('other1','other1_empty')
-        other2 = request.FILES.get('other2','other2_empty')
-        other3 = request.FILES.get('other3','other3_empty')
-        # category convert into list
-        c1 = []
-        for cx in categories:
-            ca1 = ast.literal_eval(cx)
-            cd = int(ca1)
-            c1.append(cd)
-            # end
+        nm = request.POST.get('nm')
+        ps = request.POST.get('ps')
+        em = request.POST.get('em')
+        activity = request.POST.getlist('activity')
+        city = request.POST.get('city')
+        state = request.POST.get('state')
+        country = request.POST.get('country')
+        otp = random.randint(0,9999)
         # activities convert into list
         a1 = []
-        for ax in activities:
+        for ax in activity:
             aa1 = ast.literal_eval(ax)
             ad = int(aa1)
             a1.append(ad)
             # end
 
-        # facilities convert into list
-        f1 = []
-        for fx in facilities:
+        # tabmail(em,otp)
+        insert = SignUp(name=nm,password=ps,email=em,activity=a1,city=city,state=state,country=country,otp=otp)
+        insert.save()
+        if User.objects.filter(username=em).exists():
+            return render(request,'signup.html',{'msg':'User Name Exits..!'})
+        else:
+            user = User.objects.create_user(username=em,password=ps,email=em,first_name=nm,is_superuser=0)
+            user.save()
+            auth.login(request, user)
+            return render(request, 'signup.html',{'msg':'Registered Successfully...'})
+
+    activity = Activities.objects.all().order_by('-id')
+    return render(request, 'signup.html',{'activity_data':activity})
+
+
+def logout1(request):
+    auth.logout(request)
+    return redirect('/')
+# XXXXX------END------XXXXXX
+
+# XXXX----IMAGE REVIEW----XXXXX
+def img_review():
+    image1 = Imd_Review.objects.all()
+    return  image1
+# XXXX----END----XXXX
+
+# wishlist function fetch
+def wish_fetch():
+    wish_fetch1 = Wishlist.objects.all()
+    return  wish_fetch1
+# end
+#XXXXX--------WEATHER------XXXXXXXXX
+def cweather(city):
+    api_key = "0c60c309811553f3e83e6d5f66032080"
+    base_url = "http://api.openweathermap.org/data/2.5/weather?"
+    city_name = city
+    complete_url = base_url + "appid=" + api_key + "&q=" + city_name
+    response = requests.get(complete_url)
+    x = response.json()
+    y = x['main']
+    a = x['wind']
+    v = x['visibility']
+    w = x['weather'][0]
+    return y,a,v,w
+
+# XXXXXX-----END WEATHER------XXXXXXX
+# XXXXXX------GOOGLE API FOR NEWS-----XXXXXXX
+def google_news_api(park_name,park_city):
+    googlenews = GoogleNews()
+    googlenews = GoogleNews('en','d')
+    googlenews.search(park_name)
+    googlenews.getpage(1)
+    a = googlenews.result()
+    if not a:
+        googlenews.search(park_city)
+        googlenews.getpage(1)
+        b = googlenews.result()
+    else:
+        b = a
+    res_list = []
+    for i in range(len(b)):
+        if b[i] not in b[i + 1:]:
+            res_list.append(b[i])
+    return res_list
+# XXXXXXX--------END-------XXXXXX
+# XXXXXXX-------COUNTRY IP DATA ----XXXXX
+def country_ip():
+    with urllib.request.urlopen("https://ipinfo.io/json") as url:
+        data = json.loads(url.read().decode())
+        cnt = data['country']
+        return cnt
+
+#   xxxxx------end-----xxxxx
+def home(request):
+    virtual = Virtual.objects.all()
+    activity = Activities.objects.all()
+    facility = Facilities.objects.all()
+    country_ip1 = country_ip()
+
+    IPAddr = socket.gethostbyname("google.com")
+    print("Your Computer IP Address is:" + IPAddr)
+
+# XXXXXXXXXX-----------NEAR BY SECTION--------XXXXXXXXXX
+    return render(request,'home.html',{'virtual':virtual,'activity':activity,'facility':facility,'country':country_ip1,'IPAddr':IPAddr})
+
+# XXXXXX------END------XXXXXX
+
+def nearby(request):
+    # XXXXXXXXXX-----------NEAR BY SECTION--------XXXXXXXXXX
+    # g-map api : AIzaSyAiqlCyo-hqpavT5JRjZ-Rwr1KbG0NtIig
+    if request.method=='POST':
+        lat = request.POST.get('lat')
+        lon = request.POST.get('lon')
+
+        url2 = "https://maps.googleapis.com/maps/api/geocode/json?"
+        url2 += "latlng=%s,%s&sensor=false,&key=AIzaSyAiqlCyo-hqpavT5JRjZ-Rwr1KbG0NtIig" % (lat,lon)
+        v = urllib.request.urlopen(url2)
+        j = json.loads(v.read())
+        components = j['results'][4]['address_components']
+        state=components[3]['long_name']
+        url = "https://emanjhaapi.com/locapi/alllocations"
+        response = urllib.request.urlopen(url)
+        near = json.loads(response.read())
+        return render(request,'nearyou.html',{'near':near,'state':state})
+
+
+    # XXXXXX------END------XXXXXX
+
+# XXXXXXXXXX-----------NEAR BY All SECTION--------XXXXXXXXXX
+def nearby_data(request,id):
+    url1 = f"https://emanjhaapi.com/locapi/get_location/{id}"
+    response1 = urllib.request.urlopen(url1)
+    allnear = json.loads(response1.read())
+    #XXXXXX--------Reccommend section start here-------XXXXXX
+    activity_id_list = []
+    for t in allnear['activities']:
+        aa = t['activity_id']
+        activity_id_list.append(aa)
+    aa_rem = activity_id_list[0]
+    url1 = f"https://emanjhaapi.com/locapi/get_loc_activity/{aa_rem}/"
+    response1 = urllib.request.urlopen(url1)
+    recomm_loc = json.loads(response1.read())
+    random1 = random.randint(0,4)
+    #XXXXXXX----end----XXXXXX
+    review = Review.objects.all().filter(park_tag='old',park_id=id)
+    image = img_review()
+    review_count = Review.objects.filter(park_id=id).count()
+    #weather data
+    city = allnear['location']['location_city']
+    park_name = allnear['location']['location_name']
+
+    wther = cweather(city)
+    # end weather
+    # xxxxx----google new api----xxxxx
+    news_api = google_news_api(park_name,city)
+    # xxxx-----end-----xxxxx
+    #xxxxx------trending section------xxxxx
+    trend_insert(id,'old_api')
+
+    #xxxxx-----end-----xxxxx
+    return render(request,'nearby_data.html',{'allnear':allnear,'id':id,'tag':'old','review':review,'image':image,'r_cnt':review_count,'recomm_loc1':recomm_loc,'random':random1,'wther':wther,'news_api':news_api})
+
+
+# XXXXXX------END------XXXXXX
+
+# XXXXXXXXXXXXX-----START ACTIVITY DATA-----XXXXXXXXXXXX
+def activity_data(request,id):
+    location = Location_add.objects.all()
+    lid = []
+    for i in location:
+        location_act = i.activity
+        id1 = i.id
+        location_activity = location_act.strip('][').split(', ')
+
+        for a in location_activity:
+            a = int(a)
+            if a  == id:
+                lid.append(id1)
+
+    # activity park data by api
+    activity_id = Activities.objects.filter(id=id)
+    for t in activity_id:
+        aa = t.history
+    url1 = f"https://emanjhaapi.com/locapi/get_loc_activity/{aa}/"
+    response1 = urllib.request.urlopen(url1)
+    activity_park_api = json.loads(response1.read())
+
+    # end
+    new_location = Location_add.objects.all().filter(pk__in=lid)
+# test
+    user = User.objects.get(username=request.user.username)
+    w_list = []
+    a = []
+    wish_data = Wishlist.objects.all().filter(u_id=user)
+    for w in wish_data:
+        if w.tag == 'old':
+            aa = w.p_id
+            a.append(aa)
+        else:
+            w_list.append(w.p_id)
+
+# end
+    country_ip1 = country_ip()
+    return render(request,'activity_data.html',{'location':new_location,'activity_park_api':activity_park_api,'id':id,'a':wish_data,'country':country_ip1})
+# XXXXXX-----END ACTIVITY DATA-----XXXXXXX
+
+# XXXXXXXXXXXXX-----START Facilities DATA-----XXXXXXXXXXXX
+def facilities_data(request,id):
+    location = Location_add.objects.all()
+    lid = []
+    for i in location:
+        location_act = i.facility
+        id1 = i.id
+        location_activity = location_act.strip('][').split(', ')
+
+        for a in location_activity:
+            a = int(a)
+            if a  == id:
+                lid.append(id1)
+    # activity park data by api
+    activity_id = Facilities.objects.filter(id=id)
+    for t in activity_id:
+        aa = t.history
+    url1 = f"https://emanjhaapi.com/locapi/get_loc_facility/{aa}/"
+    response1 = urllib.request.urlopen(url1)
+    activity_park_api = json.loads(response1.read())
+
+    # end
+
+    new_location = Location_add.objects.all().filter(pk__in=lid)
+
+    wish_data = wish_fetch()
+    country_ip1 = country_ip()
+    return render(request,'activity_data.html',{'location':new_location,'activity_park_api':activity_park_api,'wish_fetch':wish_data,'country':country_ip1})
+# XXXXXX-----END Facilities DATA-----XXXXXXX
+
+# XXXXXXXXXXXXXX-----START PARK DETAILS DATA-----XXXXXXXXXXXXXXX
+def park_detail(request,id):
+        location_single = Location_add.objects.filter(id=id)
+
+        for cat_id in location_single:
+            location_cat = cat_id.category
+            location_category = location_cat.strip('][').split(', ')
+
+            location_fat = cat_id.facility
+            location_facility = location_fat.strip('][').split(', ')
+
+            location_act = cat_id.activity
+            location_activity = location_act.strip('][').split(', ')
+            location_city = cat_id.city
+            park_name = cat_id.name
+
+
+        cat_l = []
+        fat_l = []
+        act_l = []
+
+        #XXX---getting category filter data---XXX
+        for cx in location_category:
+            ca1 = ast.literal_eval(cx)
+            cd = int(ca1)
+            cat_l.append(cd)
+        cat_data = Categories.objects.all().filter(pk__in=cat_l)
+        # XXX----END-----XXXX
+
+        #XXX---getting facility filter data---XXX
+        for fx in location_facility:
             fa1 = ast.literal_eval(fx)
             fd = int(fa1)
-            f1.append(fd)
-            # end
+            fat_l.append(fd)
+        fat_data = Facilities.objects.all().filter(pk__in=fat_l)
+        # XXX----END-----XXXX
 
-        Location_add(name=name,city=city,state=state,country=country,zipcode=zipcode,address=address,logitude=logitude,
-        latitude=latitude,overview=overview,category=c1,facility=f1,activity=a1,
-        thumbnail1=thumbnail1,thumbnail2=thumbnail2,thumbnail3=thumbnail3,other1=other1,
-        other2=other2,other3=other3).save()
-        return render(request,'add_location.html',{'msg':'Location Added Successfully..!'})
+        #XXX---getting Activities filter data---XXX
+        for ax in location_activity:
+            aa1 = ast.literal_eval(ax)
+            ad = int(aa1)
+            act_l.append(ad)
+        act_data = Activities.objects.all().filter(pk__in=act_l)
+        # XXX----END-----XXXX
+
+        #XXXXXXX-------Recommended section start--------XXXXXXXXX
+        location = Location_add.objects.all()
+        lid = []
+        for i in location:
+            location_act = i.activity
+            id1 = i.id
+            location_activity = location_act.strip('][').split(', ')
+
+            for a in location_activity:
+                a = int(a)
+                if a  == act_l[0]:
+                    lid.append(id1)
+
+        recomm_loc = Location_add.objects.all().filter(pk__in=lid)
+        # XXXXXXXX--------END-------XXXXX
+
+        review = Review.objects.all().filter(park_tag='local',park_id=id)
+        image = img_review()
+        review_count = Review.objects.filter(park_id=id).count()
+
+        #xxxxx------trending section------xxxxx
+        trend_insert(id,'home')
+        #xxxxx-----end-----xxxxx
+        # XXXX----WEATHER----XXXXXX
+        wther = cweather(location_city)
+        # XXXXX-----END-----XXXXXX
+        # xxxxx----google new api----xxxxx
+        news_api = google_news_api(park_name,location_city)
+        # xxxx-----end-----xxxxx
+        # xxxx------twitter api----xxxxxxx
+        twit_api = twitter(park_name,id)
+        # xxxxxx-------end------xxxxxx
+        random1 = random.randint(1,5)
+
+        return render(request,'park_detail.html',{'location_single':location_single,'cat_id':cat_data,'fat_id':fat_data,'act_id':act_data,'id':id,'review':review,'tag':'local','image':image,'r_cnt':review_count,'recomm_loc':recomm_loc,'random':random1,'wther':wther,'news_api':news_api,'twit_api':twit_api})
+
+# XXXXXX-----END PARK DETAILS DATA-----XXXXXXX
+
+# XXXXXXXX-------USA ALL PARK-------XXXXXXXXXXXX
+def usa_all_park(request):
+    us_state = Usa_state.objects.all()
+
+    return render(request,'usa_all_park.html',{'state_name':us_state})
+
+# XXXX-----END----XXXXX
+
+# XXXXXXXX-------USA state_park PARK-------XXXXXXXXXXXX
+def state_park(request,id):
+    url = "https://emanjhaapi.com/locapi/alllocations"
+    response = urllib.request.urlopen(url)
+    near = json.loads(response.read())
+    return render(request,'nearyou.html',{'near':near,'state':id})
+
+# XXXX-----END----XXXXX
+
+def message(request):
+    return render(request, 'message.html')
+
+
+def faq(request):
+    return render(request, 'faq.html')
+
+def covid(request):
+    return render(request, 'covid.html')
+
+def virtual(request,id):
+    data = Virtual.objects.all().filter(id=id)
+    return render(request, 'virtualdata.html',{'data':data})
+
+def virtual_list(request):
+    virtual = Virtual.objects.all()
+    return render(request,'virtual_list1.html',{'virtual':virtual})
+
+def alphabet(request):
+    return render(request,'alphabet.html')
+
+def alphabet_data(request,id):
+    url = f"http://159.89.175.187/locapi/alphabet/{id}/"
+    response = urllib.request.urlopen(url)
+    alphabet = json.loads(response.read())
+    return render(request,'alphabet_data.html',{'data':alphabet})
+
+# XXXXXX--------US NATIONAL STATE-----XXXXXXX
+def us_national_park(request,id):
+    if id == 'state':
+        us_state = Usa_state.objects.all()
+        return render(request,'us_national_park.html',{'state_name':us_state})
+    else:
+        return render(request,'us_alphabet.html')
+
+
+def us_national_state(request,id):
+    us_state = Usa_state.objects.filter(id=id)
+    for u in us_state:
+        url1 = u.api_url
+        s_name = u.name
+
+    r = requests.get(url1)
+    data = r.json()
+
+    return render(request,'us_national_state.html',{'state_name':data['data'],'s_name':s_name})
+
+def us_national_details(request,id):
+    r = requests.get(f'https://mychaps.net/us-state-single-api/{id}')
+    data1 = r.json()
+    data = data1['data']
+
+    #XXXXXX--------Reccommend section start here-------XXXXXX
+    act_data = Activities.objects.all()
+    activity_id_list = []
+    park_name = []
+    location_city = []
+    for d in data:
+        park_name.append(d['fullName'])
+        location_city.append(d['addresses'][1]['city'])
+        for z in d['activities']:
+            nps_activity = z['name']
+            for main_activity in act_data:
+                main_activity1 = main_activity.name
+                hist = main_activity.history
+                if main_activity1.lower() == nps_activity.lower():
+                    activity_id_list.append(hist)
+
+    # aa_rem = activity_id_list[0]
+    url1 = f"https://emanjhaapi.com/locapi/get_loc_activity/{28}/"
+    response1 = urllib.request.urlopen(url1)
+    recomm_loc = json.loads(response1.read())
+
+    #XXXXXXX----end----XXXXXX
+
+    review = Review.objects.all().filter(park_tag='nsp',park_id=id)
+    image = img_review()
+    review_count = Review.objects.filter(park_id=id).count()
+    #xxxxx------trending section------xxxxx
+    trend_insert(id,'nsp')
+    #xxxxx-----end-----xxxxx
+    # XXXX----WEATHER----XXXXXX
+    wther = cweather(location_city[0])
+    # XXXXX-----END-----XXXXXX
+    # xxxxx----google new api----xxxxx
+    news_api = google_news_api(park_name[0],location_city[0])
+    # xxxx-----end-----xxxxx
+    return render(request,'us_national_details.html',{'state_name':data,'id':id,'tag':'nsp','review':review,'image':image,'r_cnt':review_count,'recomm_loc1':recomm_loc,'news_api':news_api,'wther':wther})
+
+def us_national_alpha(request,id):
+    r = requests.get(f'https://mychaps.net/us-state-alphabet-api/{id}')
+    data1 = r.json()
+    data = data1['data']
+    return render(request,'us_national_state.html',{'state_name':data})
+
+# XXXXXX------END------XXXXXXX
+
+# XXXXXXXXXXXXX--------COUNTRY WISE------XXXXXXXXXX
+def by_country(request):
+    return render(request,'by_country.html')
+
+def country_alphabet_in(request):
+    return render(request,'country_alphabet_in.html')
+
+def country_alphabet_data_in(request,id):
+    url = f"https://emanjhaapi.com/locapi/alphabet_c/india/{id}/"
+    response = urllib.request.urlopen(url)
+    alphabet = json.loads(response.read())
+    return render(request,'alphabet_data.html',{'data':alphabet})
+# XXXXXXXXXX-------END-------XXXXXXXX
+
+# XXXXXXXXXX----------review---------XXXXXXXXXXXX
+def review(request):
+    if request.method == 'POST':
+        overall = int(request.POST.get('overall',1))
+        behav = int(request.POST.get('behaviour',1))
+        service = int(request.POST.get('service',1))
+        comt = request.POST.get('comt')
+        img = request.FILES.getlist('img')
+        id = request.POST.get('id')
+        tag = request.POST.get('tag')
+        user_id = request.POST.get('user_id')
+        user_nm = request.POST.get('user_nm')
+        p_date = datetime.date.today()
+
+        insert = Review(user_id=user_id,park_id=id,park_tag=tag,overall=overall,service=service,behaviour=behav,comment=comt,p_date=p_date,user_nm=user_nm)
+        insert.save()
+        rid = insert.id
+        for f in img:
+            print('rid:',rid)
+            photo = Imd_Review(rid=int(rid), img=f)
+            photo.save()
+
+        return redirect(f'after_review/{tag},{id}')
+        # if tag == 'old':
+        #     return redirect(f'nearby-data/{id}',{'msg':'inserted Successfully'})
+        # elif tag == 'nsp':
+        #     return redirect(f'us_national_details/{id}',{'msg':'inserted Successfully'})
+        # else:
+        #     return redirect(f'park-detail/{id}')
+
 
     else:
-        facility = Facilities.objects.all().order_by('-id')
-        activity = Activities.objects.all().order_by('-id')
-        category = Categories.objects.all()
-        return render(request,'add_location.html',{'facility_data':facility,'activity_data':activity,'category_data':category})
+        return render(request, 'home.html')
 
-#XXX---END ADD LOCATION SECTION---XXX
+def after_review(request,tag,id):
+    if tag == 'nsp':
+        id = str(id)
+    else:
+        id = int(id)
+    review = Review.objects.all().filter(park_tag=tag,park_id=id).order_by('-id')
+    image = img_review()
+    review_count = Review.objects.filter(park_id=id).count()
+    return render(request, 'after_review.html',{'review':review,'image':image,'review_count':review_count,'tag':tag,'id':id})
 
-# location_delete section start
-def location_delete(request,id):
-    delete = Location_add.objects.filter(id=id).delete()
-    return render(request,'location.html',{'msg':'Deleted Successfully..'})
-# end location_delete section
-# XXXXXXXXXX--------END LOCATION Section---------XXXXXXXXXXX
+
+# XXXXXXXX--------END-------XXXXXXXXXX
+
+# XXXXXXXXXXXXX--------Feedback-------XXXXXXXXXXXXX
+def feedback(request):
+    if request.method == 'POST':
+        nm = request.POST.get('nm')
+        em = request.POST.get('em')
+        feed =request.POST.get('feed')
+        p_date = datetime.date.today()
+        Feedback(nm=nm,em=em,feed=feed,p_date=p_date).save()
+    return render(request, 'feedback.html')
+# XXXX-----END-----XXXXXX
+
+# XXXXXXXX--------WISHLIST-------XXXXXXXXXXXX
+def wishlist(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        tag = request.POST.get('tag')
+        user = request.POST.get('user')
+        Wishlist(p_id=id,tag=tag,u_id=user).save()
+    return render(request, 'feedback.html')
+
+def save_park(request):
+    user = User.objects.get(username=request.user.username)
+    w_list = []
+    a = []
+    wish_data = Wishlist.objects.all().filter(u_id=user)
+    for w in wish_data:
+        if w.tag == 'old':
+            aa = w.p_id
+            a.append(aa)
+        w_list.append(w.p_id)
+    new_location = Location_add.objects.all().filter(pk__in=w_list)
+
+    # activity park data by api
+
+    url1 = f"https://emanjhaapi.com/locapi/alllocations"
+    response1 = urllib.request.urlopen(url1)
+    activity_park_api = json.loads(response1.read())
+    # end
+
+
+    return render(request,'save_park.html',{'location':new_location,'activity_park_api':activity_park_api,'api_id':a})
+
+def wishlist_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        tag = request.POST.get('tag')
+        user = request.POST.get('user')
+        Wishlist.objects.all().filter(p_id=id,tag=tag,u_id=user).delete()
+        return render(request,'save_park.html')
+    return render(request,'wish_detail.html')
+
+# wish detail here
+def wish_detail(request,id):
+    user = User.objects.get(username=request.user.username)
+    wish_data = Wishlist.objects.all().filter(u_id=user,p_id=id).count()
+
+    return render(request,'wish_detail.html',{'wish_data':wish_data,'id':id,'z':wish_data})
+
+def wish_detail1(request,id):
+    print('id : ',id,'tag : ','tag')
+    user = User.objects.get(username=request.user.username)
+    wish_data = Wishlist.objects.all().filter(u_id=user,p_id=id).count()
+
+    return render(request,'wish_detail1.html',{'wish_data':wish_data,'id':id,'z':wish_data})
+
+# end
+# XXXXXXXXXX----------Trending-------XXXXXXXXX
+def trending(request):
+    trend = Trending.objects.all().filter(qnt__gte=3)
+    hm_list = []
+    old_list = []
+    nsp_list = []
+
+    for w in trend:
+        if w.tag == 'home':
+            a1 = w.p_id
+            hm_list.append(a1)
+        elif w.tag == 'old_api':
+            a2 = w.p_id
+            old_list.append(a2)
+        else:
+            a3 = w.p_id
+            nsp_list.append(a3)
+
+    new_location = Location_add.objects.all().filter(pk__in=hm_list)
+
+    # activity park data by api
+
+    url1 = f"https://emanjhaapi.com/locapi/alllocations"
+    response1 = urllib.request.urlopen(url1)
+    activity_park_api = json.loads(response1.read())
+    # end
+
+    return render(request,'most_view.html',{'location':new_location,'activity_park_api':activity_park_api,'api_id':old_list})
+
+def trend_insert(pid,tag):
+    p_date = datetime.date.today()
+    trend = Trending.objects.filter(p_id=pid,tag=tag)
+    if trend.count() == 0:
+        insert = Trending(p_id=pid,tag=tag,dt=p_date,qnt=1).save()
+    else:
+        for t in trend:
+            q = t.qnt
+            q = q+1
+            update = Trending.objects.filter(p_id=pid,tag=tag).update(qnt=q)
+#XXXX------END------XXXXXXX
+
+# XXXXXXX--------GOOGLE NEWS-------XXXXXXXXXX
+def google_news(request):
+    return render(request,'google_news.html')
+# XXXXXXXX-------END-------XXXXXXXX
