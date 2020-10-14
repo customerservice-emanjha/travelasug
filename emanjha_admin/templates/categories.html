@@ -1,7 +1,7 @@
 {% extends 'basic.html' %}
 
 {% block body %}
-
+{% if user.is_authenticated %}
 {% if msg %}
 <script>
  alert(`{{msg}}`);
@@ -150,10 +150,11 @@
 
       <div class="modal-footer">
 
-      <form class="" action='categories_update' method="post">
+      <form class="" action='categories_update' method="post" enctype="multipart/form-data">
         {% csrf_token %}
         <div class="row">
         <input type="hidden" name="id" value="{{i.id}}">
+        <input type="hidden" name="img1" value="{{i.image}}">
         <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12">
         <input type="text" name="nm" value="{{i.name}}">
         </div>
@@ -162,6 +163,10 @@
         <textarea name="history" placeholder=" Location History" style="width:100%; margin-bottom:15px;">{{i.history}}</textarea>
 
           </div>
+          <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12">
+            <br>
+          <input name="img" type="file"  style="width:100%; margin-bottom:15px;" >
+            </div>
           <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12">
 
         <input type="submit" name="submit" value="Update" class="btn btn-danger">
@@ -177,5 +182,10 @@
       <!-- modal end -->
 
       <!-- end page content -->
-
+      {% else %}
+       <script>
+         alert('You are not Logged-In..!');
+         window.open('login','_self');
+         </script>
+         {% endif %}
 {% endblock %}

@@ -1,6 +1,7 @@
 {% extends 'basic.html' %}
 
 {% block body %}
+{% if user.is_authenticated %}
 {% if msg %}
 <script>
  alert(`{{msg}}`);
@@ -173,4 +174,10 @@
         }
       </script>
       <!-- end page content -->
+      {% else %}
+       <script>
+         alert('You are not Logged-In..!');
+         window.open('login','_self');
+         </script>
+         {% endif %}
 {% endblock %}

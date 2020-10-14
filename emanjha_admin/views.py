@@ -1,11 +1,43 @@
-from django.shortcuts import render
-from .models import Facilities, Activities, Categories, Api_document, Location_add
-from .serializers import FacilitiesSerializer, ActivitiesSerializer, CategoriesSerializer,LocationSerializer
+from django.shortcuts import render, redirect
+from .models import Facilities, Activities, Categories, Api_document, Location_add, Usa_state, Virtual
+from home.models import Feedback
+from .serializers import FacilitiesSerializer, ActivitiesSerializer, CategoriesSerializer,LocationSerializer, StateSerializer
 from django.http import HttpResponse
 from rest_framework import viewsets
 from array import *
 import json, requests
 import ast
+from django.contrib.auth.models import User, auth
+import urllib.request
+from django.http import JsonResponse
+import os
+from .alphabet import *
+from django.conf import settings
+import pickle
+from django import template
+register = template.Library()
+
+
+# https://api.flightapi.io/dashboard/5f293c94db9e9a675a0ed374 flight api
+# XXXXXX-----Admin Login Section-----XXXXXXXX
+def login(request):
+    if request.method=='POST':
+        unm=request.POST['unm']
+        ps=request.POST['ps']
+        user = auth.authenticate(username=unm,password=ps)
+        if user is not None:
+            auth.login(request, user)
+            return redirect('/')
+        else:
+            return render(request,'login.html',{'msg':'User Name Not Exits..!'})
+
+    else:
+        return render(request,'login.html')
+
+def logout(request):
+    auth.logout(request)
+    return redirect('/login')
+# XXXX----END LOGIN SECTION---XXXX
 
 # Admin Panel Dashboad section start here
 def dashboard(request):
@@ -51,7 +83,9 @@ def facilities_update(request):
         id = request.POST.get('id')
         nm = request.POST.get('nm')
         history = request.POST.get('history')
-        Facilities.objects.filter(id=id).update(name=nm,history=history)
+        img1 = request.POST.get('img1')
+        img = request.FILES.get('img',img1)
+        Facilities(name=nm,image=img,history=history,id=id).save()
         return render(request,'facilities.html',{'msg':'Facilities Updated Successfully..'})
 
 # facility update section end
@@ -96,7 +130,9 @@ def activities_update(request):
       id = request.POST.get('id')
       nm = request.POST.get('nm')
       history = request.POST.get('history')
-      Activities.objects.filter(id=id).update(name=nm,history=history)
+      img1 = request.POST.get('img1')
+      img = request.FILES.get('img',img1)
+      Activities(name=nm,image=img,history=history,id=id).save()
       return render(request,'activities.html',{'msg':'Activities Updated Successfully..'})
 
 # Activities update section end
@@ -141,7 +177,9 @@ def categories_update(request):
       id = request.POST.get('id')
       nm = request.POST.get('nm')
       history = request.POST.get('history')
-      Categories.objects.filter(id=id).update(name=nm,history=history)
+      img1 = request.POST.get('img1')
+      img = request.FILES.get('img',img1)
+      Categories(name=nm,image=img,history=history,id=id).save()
       return render(request,'categories.html',{'msg':'Categories Updated Successfully..'})
 
 # Categories update section end
@@ -291,3 +329,146 @@ def location_delete(request,id):
     return render(request,'location.html',{'msg':'Deleted Successfully..'})
 # end location_delete section
 # XXXXXXXXXX--------END LOCATION Section---------XXXXXXXXXXX
+
+# XXXXXXXXXX---------LOCATION UPDATE START-------XXXXXXXXXXXX
+def location_update(request):
+    id = request.POST.get('id')
+    name = request.POST.get('name','name_empty')
+    city = request.POST.get('city','city_empty')
+    state = request.POST.get('state','state_empty')
+    country = request.POST.get('country','country_empty')
+    zipcode = request.POST.get('zipcode','zipcode_empty')
+    address = request.POST.get('address','address_empty')
+    logitude = request.POST.get('logitude','logitude_empty')
+    latitude = request.POST.get('latitude','latitude_empty')
+    overview = request.POST.get('overview','name_empty')
+    Location_add.objects.filter(id=id).update(name=name,city=city,state=state,country=country,zipcode=zipcode,address=address,logitude=logitude,
+    latitude=latitude,overview=overview)
+    return render(request,'location.html',{'msg':'Update Successfully..'})
+# XXXXXXXXX----------END----------XXXXXXXXXX
+
+# XXXXXXXXX------US STATE UPS API------XXXXXXXXXXXXX
+
+# STATE API start here
+class UstateView(viewsets.ModelViewSet):
+   """API URLS FOR VIEW State API : http://127.0.0.1:8000/usa_state_api"""
+   queryset = Usa_state.objects.all()
+   serializer_class = StateSerializer
+# STATE API END
+
+# XXX---ADD US STATE---XXXX
+def add_us_state(request):
+    if request.method == 'POST':
+        name = request.POST.get('name','state name not found')
+        url = request.POST.get('url','url not found')
+        Usa_state(name=name,api_url=url).save()
+        return render(request,'add_state.html',{'msg':'Added Successfully..'})
+    else:
+        data = Usa_state.objects.all()
+        return render(request,'add_state.html',{'data':data})
+
+# XXX---END ADD STATE--XX
+
+#  STATE update section start
+def state_update(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        name = request.POST.get('name','state name not found')
+        url = request.POST.get('api_url','url not found')
+        img1 = request.POST.get('img1')
+        img = request.FILES.get('img',img1)
+        desc = request.POST.get('desc')
+        park_qnt = request.POST.get('park_qnt')
+        Usa_state(name=name,api_url=url,img=img,desc=desc,park_qnt=park_qnt,id=id).save()
+        return render(request,'add_state.html',{'msg':f'Updated Successfully'})
+
+# end  update delete section
+
+#  STATE delete section start
+def state_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        delete = Usa_state.objects.filter(id=id).delete()
+        return render(request,'add_state.html',{'msg':'Deleted Successfully..'})
+# end  STATE delete section
+
+def us_state_api(request,name):
+    url = f"https://developer.nps.gov/api/v1/parks?stateCode={name}&api_key=raLnxkuep5zAv2tSiySQgxCqXU1NSzZ24Cl1YmY5"
+    response = urllib.request.urlopen(url)
+    data = json.loads(response.read())
+    return JsonResponse(data)
+
+
+# XXX---Single api us state---XXXX
+def us_state_single_api(request,name):
+    url = f"https://developer.nps.gov/api/v1/parks?parkCode={name}&api_key=raLnxkuep5zAv2tSiySQgxCqXU1NSzZ24Cl1YmY5"
+    response = urllib.request.urlopen(url)
+    data = json.loads(response.read())
+    return JsonResponse(data)
+# end
+
+# XXX---Alphabet api us state---XXXX
+def us_state_alphabet_api(request,name):
+    name = name.lower()
+    d = alphabet(name)
+    url = f"https://developer.nps.gov/api/v1/parks?parkCode={d}&api_key=raLnxkuep5zAv2tSiySQgxCqXU1NSzZ24Cl1YmY5"
+    response = urllib.request.urlopen(url)
+    data = json.loads(response.read())
+    return JsonResponse(data)
+# end
+
+# XXXX---END US STATE UPS API---XXX
+
+
+# XXXXXXX-------- start Virtual -------XXXXXXX
+def virtual_add(request):
+    # Here we do Virtual add to db section
+    if request.method =='POST':
+        name = request.POST.get('name','empty')
+        history = request.POST.get('history','empty')
+        url = request.POST.get('url','empty')
+        image = request.FILES.get('image','image_empty')
+        insert = Virtual(name=name,image=image,description=history,url=url)
+        insert.save()
+        return render(request,'virtual.html',{'msg':'Virtual Added Successfully..'})
+        # end Virtual add to db section
+    else:
+        data = Virtual.objects.all().order_by('-id')
+        return render(request,'virtual.html',{'data':data})
+
+    # Virtual delete section start
+def virtual_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        delete = Virtual.objects.filter(id=id).delete()
+        return render(request,'virtual.html',{'msg':'Virtual Deleted Successfully..'})
+    # end Virtual delete section
+
+# Virtual update section start
+def virtual_update(request):
+  if request.method == 'POST':
+      id = request.POST.get('id')
+      nm = request.POST.get('nm')
+      url = request.POST.get('url','empty')
+      history = request.POST.get('history')
+      Virtual.objects.filter(id=id).update(name=nm,description=history,url=url)
+      return render(request,'virtual.html',{'msg':'Virtual Updated Successfully..'})
+
+# Virtual update section end
+
+
+#  XXXXXXX-------- End Virtual -------XXXXXXX
+
+# XXXXX-------FEEDBACK-------XXXXXXXXXX
+def admin_feedback(request):
+    data = Feedback.objects.all()
+    return render(request,'admin_feedback.html',{'data':data})
+
+# admin_feedback delete section start
+def feedback_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        delete = Feedback.objects.filter(id=id).delete()
+        return render(request,'admin_feedback.html',{'msg':'Feedback Deleted Successfully..'})
+#  end section
+# XXXX----END-------XXXXX
